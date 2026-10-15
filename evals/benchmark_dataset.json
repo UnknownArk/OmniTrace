@@ -1,0 +1,80 @@
+[
+  {
+    "id": "hybrid_01",
+    "name": "Correlated Drop-off and Scene Diagnosis",
+    "query": "Which episode in Bhaichara had the highest audience drop-off rate, and what was happening in the script during that scene?",
+    "category": "hybrid",
+    "expected_tools": ["execute_sql", "search_transcripts"],
+    "expected_facts": [
+      "103",
+      "38.4",
+      "audio",
+      "flashback"
+    ],
+    "description": "Requires querying SQL for drop-off telemetry, locating the 38.4% peak in Ep 103 at 00:13:10, and searching transcripts for scene dialogue."
+  },
+  {
+    "id": "sql_01",
+    "name": "Quantitative Regional Telemetry",
+    "query": "What is the viewer share and average rating of Bhaichara in Haryana compared to Delhi-NCR?",
+    "category": "sql_only",
+    "expected_tools": ["execute_sql"],
+    "expected_facts": [
+      "54",
+      "4.6",
+      "26"
+    ],
+    "description": "Requires structured aggregation from regional_performance table without querying transcripts."
+  },
+  {
+    "id": "rag_01",
+    "name": "Qualitative Narrative Search",
+    "query": "What dialogue occurred at Murthal Toll Plaza between Jaideep and Virender?",
+    "category": "rag_only",
+    "expected_tools": ["search_transcripts"],
+    "expected_facts": [
+      "consignment",
+      "police",
+      "patrolling"
+    ],
+    "description": "Requires transcript search over scene locations and character lines without executing SQL."
+  },
+  {
+    "id": "missing_rag_01",
+    "name": "Partial Data - Present in DB, Missing in Transcripts",
+    "query": "Why did viewers drop off at 18:45 in Episode 1 of Dopamine Hustle?",
+    "category": "edge_case_missing_transcript",
+    "expected_tools": ["execute_sql", "search_transcripts"],
+    "expected_facts": [
+      "41.2",
+      "missing",
+      "silent"
+    ],
+    "description": "Telemetry reports 41.2% dropoff, but transcripts have no dialogue. Agent must flag the missing transcript record without hallucinating dialogue."
+  },
+  {
+    "id": "missing_sql_01",
+    "name": "Partial Data - Present in Script, Missing in DB",
+    "query": "What happened on the High Court steps in Episode 8 of Bhaichara and what were its viewership numbers?",
+    "category": "edge_case_missing_telemetry",
+    "expected_tools": ["search_transcripts", "execute_sql"],
+    "expected_facts": [
+      "ledger",
+      "Advocate",
+      "unreleased"
+    ],
+    "description": "Script contains scene, but SQL DB has 0 rows for Episode 108. Agent must report dialogue and state that telemetry is absent/unreleased."
+  },
+  {
+    "id": "refusal_01",
+    "name": "Out of Scope / Non-Existent Entity",
+    "query": "What was the viewer completion rate for Season 4 of Game of Thrones?",
+    "category": "negative_refusal",
+    "expected_tools": ["execute_sql"],
+    "expected_facts": [
+      "not found",
+      "no records"
+    ],
+    "description": "Neither database contains Game of Thrones. Agent must report absence without hallucinating fake ratings."
+  }
+]

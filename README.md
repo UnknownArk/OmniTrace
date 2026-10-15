@@ -119,7 +119,8 @@ python evals/runner.py
 - **SQL Security & AST**: Rejection of destructive queries, chained statements, and validation of CTE queries.
 - **Schema Discovery**: Table discovery and column type inspection.
 - **RAG Temporal Windows**: Range retrieval verification and missing-entity handling.
-- **Agent Routing Precision**: Asserting correct tool call sequences (`[execute_sql, search_transcripts]`) across hybrid, quantitative-only, and qualitative-only questions.
+- **Agent Routing Precision**: Asserting correct tool call sequences across hybrid and single-modality questions.
+- **G-Eval Semantic Faithfulness**: Using Chain-of-Thought LLM judgment (`evals/geval_judge.py`) to score answer fidelity and penalize hallucinations.
 
 ---
 
@@ -143,6 +144,7 @@ OmniTrace/
 │   └── sample_transcripts/     # Seeded scene transcripts
 ├── evals/
 │   ├── benchmark_dataset.json  # Golden test queries, expected tools, and facts
+│   ├── geval_judge.py          # Native G-Eval judge (Chain-of-Thought semantic scoring)
 │   ├── runner.py               # Benchmark runner & metric aggregator
 │   ├── test_unit_guardrails.py # Deterministic offline Pytest suite
 │   ├── test_routing.py         # Tool routing precision tests

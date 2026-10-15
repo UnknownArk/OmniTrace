@@ -1,18 +1,10 @@
-"""
-Database schema inspector tool.
-Enables the agent to discover tables, column names, and data types on demand
-rather than bloating the initial system prompt with complete schemas.
-"""
-
 import sqlite3
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 from omni_trace.config import DB_PATH
 from omni_trace.models import ToolResult
 from omni_trace.tools.base import BaseTool
 
 class SchemaInspectorTool(BaseTool):
-    """Tool to inspect relational database structure and table schemas."""
-
     name = "inspect_schema"
     description = (
         "Inspects available database tables or retrieves column definitions for a specific table. "
@@ -23,12 +15,7 @@ class SchemaInspectorTool(BaseTool):
         self.db_path = str(db_path or DB_PATH)
 
     def execute(self, table_name: Optional[str] = None) -> ToolResult:
-        """
-        If table_name is None, lists all tables in the database.
-        If table_name is provided, describes columns and schema for that table.
-        """
         try:
-            # Connect in read-only mode via URI
             conn = sqlite3.connect(f"file:{self.db_path}?mode=ro", uri=True)
             cursor = conn.cursor()
 
@@ -44,7 +31,6 @@ class SchemaInspectorTool(BaseTool):
                     is_empty=(len(tables) == 0)
                 )
 
-            # Describe specific table
             cursor.execute(f"PRAGMA table_info({table_name});")
             columns = cursor.fetchall()
             conn.close()
@@ -85,11 +71,5 @@ class SchemaInspectorTool(BaseTool):
             )
 
 def inspect_schema(table_name: Optional[str] = None) -> Dict[str, Any]:
-    """
-    Inspects available database tables or retrieves column definitions for a specific table.
-    
-    Args:
-        table_name: The name of the table to inspect. Leave empty/None to list all tables.
-    """
     tool = SchemaInspectorTool()
     return tool.execute(table_name=table_name).model_dump()

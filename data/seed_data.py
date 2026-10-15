@@ -1,15 +1,3 @@
-"""
-Seed script for OmniTrace demo & evaluation datasets.
-Creates:
-1. SQLite relational database (data/media_analytics.db) with realistic OTT telemetry
-2. Transcript documents (data/sample_transcripts/) with timestamped scene dialogue
-Includes intentional edge cases:
-- Coordinated correlations (drop-off spike matches confusing scene)
-- Asymmetric data (in DB but not transcript; in transcript but not DB)
-- Temporal drift (timestamp offsets) to test windowed retrieval
-"""
-
-import os
 import json
 import sqlite3
 from pathlib import Path
@@ -19,15 +7,13 @@ DB_PATH = DATA_DIR / "media_analytics.db"
 TRANSCRIPTS_DIR = DATA_DIR / "sample_transcripts"
 
 def seed_sqlite_database():
-    """Builds and populates the SQLite media telemetry database."""
     if DB_PATH.exists():
-        DB_PATH.unlink()  # Clean rebuild
+        DB_PATH.unlink()
 
     conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
+    cur = conn.cursor()
 
-    # 1. Shows Table
-    cursor.execute("""
+    cur.execute("""
     CREATE TABLE shows (
         show_id INTEGER PRIMARY KEY,
         title TEXT NOT NULL,
@@ -38,8 +24,7 @@ def seed_sqlite_database():
     );
     """)
 
-    # 2. Episodes Table
-    cursor.execute("""
+    cur.execute("""
     CREATE TABLE episodes (
         episode_id INTEGER PRIMARY KEY,
         show_id INTEGER NOT NULL REFERENCES shows(show_id),
@@ -53,8 +38,7 @@ def seed_sqlite_database():
     );
     """)
 
-    # 3. Retention Drop-off Events Table
-    cursor.execute("""
+    cur.execute("""
     CREATE TABLE retention_dropoffs (
         event_id INTEGER PRIMARY KEY,
         episode_id INTEGER NOT NULL REFERENCES episodes(episode_id),
@@ -66,8 +50,7 @@ def seed_sqlite_database():
     );
     """)
 
-    # 4. Regional Performance Table
-    cursor.execute("""
+    cur.execute("""
     CREATE TABLE regional_performance (
         perf_id INTEGER PRIMARY KEY,
         show_id INTEGER NOT NULL REFERENCES shows(show_id),
@@ -77,46 +60,32 @@ def seed_sqlite_database():
     );
     """)
 
-    # --- Insert Sample Shows ---
-    shows = [
+    cur.executemany("INSERT INTO shows VALUES (?, ?, ?, ?, ?, ?)", [
         (1, "Bhaichara", "Crime Drama", "Haryanvi/Hindi", 1, 2025),
         (2, "Dopamine Hustle", "Tech Drama", "Hinglish", 1, 2025),
         (3, "Chaudhar", "Political Thriller", "Haryanvi", 2, 2024),
-    ]
-    cursor.executemany("INSERT INTO shows VALUES (?, ?, ?, ?, ?, ?)", shows)
+    ])
 
-    # --- Insert Sample Episodes ---
-    episodes = [
-        # Bhaichara (Season 1)
+    cur.executemany("INSERT INTO episodes VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", [
         (101, 1, 1, 1, "The Oath", 28, 450000, 72.5, 21.2),
         (102, 1, 1, 2, "The Broken Deal", 26, 390000, 68.0, 18.5),
-        (103, 1, 1, 3, "The Ambush", 24, 340000, 49.2, 13.1),  # Notice steep drop in completion rate
+        (103, 1, 1, 3, "The Ambush", 24, 340000, 49.2, 13.1),
         (104, 1, 1, 4, "Crossroads", 27, 280000, 64.0, 17.8),
-        # Dopamine Hustle (Season 1)
         (201, 2, 1, 1, "Burn Rate", 32, 220000, 52.0, 18.0),
         (202, 2, 1, 2, "Term Sheet", 30, 190000, 61.5, 19.4),
-        # Chaudhar (Season 2)
         (301, 3, 2, 1, "The Panchayat War", 35, 510000, 78.0, 28.1),
-    ]
-    cursor.executemany("INSERT INTO episodes VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", episodes)
+    ])
 
-    # --- Insert Retention Drop-off Events ---
-    dropoffs = [
-        # Normal minor dropoffs in Episode 101
+    cur.executemany("INSERT INTO retention_dropoffs VALUES (?, ?, ?, ?, ?, ?, ?)", [
         (1, 101, 180, "00:03:00", 6.2, "Intro Skip / Exit", "Mobile"),
         (2, 101, 600, "00:10:00", 4.1, "Normal Fatigue", "Mobile"),
-        # CRITICAL ABNORMAL DROPOFF in Episode 103 (The Ambush) at minute 13:10 (790 seconds)
         (3, 103, 790, "00:13:10", 38.4, "Abrupt Scene Exit", "Mobile"),
         (4, 103, 850, "00:14:10", 12.1, "Secondary Exit", "SmartTV"),
-        # Scenario 1 (In DB, but Transcript is intentionally missing / silent scene)
         (5, 201, 1125, "00:18:45", 41.2, "Pacing Lull", "Mobile"),
-        # Normal dropoff in Episode 301
         (6, 301, 900, "00:15:00", 5.5, "Normal Exit", "SmartTV"),
-    ]
-    cursor.executemany("INSERT INTO retention_dropoffs VALUES (?, ?, ?, ?, ?, ?, ?)", dropoffs)
+    ])
 
-    # --- Insert Regional Performance ---
-    regions = [
+    cur.executemany("INSERT INTO regional_performance VALUES (?, ?, ?, ?, ?)", [
         (1, 1, "Haryana", 54.0, 4.6),
         (2, 1, "Delhi-NCR", 26.0, 4.2),
         (3, 1, "Rajasthan", 14.0, 4.4),
@@ -124,18 +93,15 @@ def seed_sqlite_database():
         (5, 2, "Delhi-NCR", 68.0, 4.1),
         (6, 2, "Bangalore", 22.0, 4.5),
         (7, 3, "Haryana", 70.0, 4.8),
-    ]
-    cursor.executemany("INSERT INTO regional_performance VALUES (?, ?, ?, ?, ?)", regions)
+    ])
 
     conn.commit()
     conn.close()
-    print(f"[OK] SQLite database seeded at: {DB_PATH}")
 
 def seed_transcripts():
-    """Generates structured JSON transcript chunks with scene metadata and dialogue."""
     TRANSCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    transcripts_data = [
+    transcripts = [
         {
             "show_id": 1,
             "show_title": "Bhaichara",
@@ -153,7 +119,7 @@ def seed_transcripts():
                 "Virender: Tension na le Jaideep, Rohtak bypass tak koi nahi rok sakega humein.\n"
                 "Jaideep: Yeh consignment har haal mein sham tak pahunchana hai."
             ),
-            "summary": "High-octane opening scene where Jaideep and Virender evade toll check with cargo."
+            "summary": "Opening scene: Jaideep and Virender evade toll check with cargo."
         },
         {
             "show_id": 1,
@@ -171,9 +137,8 @@ def seed_transcripts():
                 "Chaudhary: Tu samajhta hai tu is shahar ka naya raja ban gaya hai, Jaideep?\n"
                 "Jaideep: Raja toh public banati hai, Chaudhary sahab. Hum toh bas faisle karte hain."
             ),
-            "summary": "Tense political confrontation between Jaideep and Chaudhary Balwant."
+            "summary": "Confrontation between Jaideep and Chaudhary Balwant."
         },
-        # THE CORRELATED ABNORMAL SCENE (Matches the 38.4% drop-off at 00:13:10)
         {
             "show_id": 1,
             "show_title": "Bhaichara",
@@ -192,9 +157,8 @@ def seed_transcripts():
                 "[Audio cuts to jarring high-pitched static for 15 seconds. Unresolved narrative jump. "
                 "Scene cuts abruptly into an unannounced black-and-white flashback without subtitle translations.]"
             ),
-            "summary": "Sudden jarring audio glitch and abrupt black-and-white flashback sequence without dialogue coherence."
+            "summary": "Audio defect and abrupt flashback transition in warehouse scene."
         },
-        # Scenario 2: Present in Transcript, but DB has 0 telemetry rows (Unreleased Episode 108)
         {
             "show_id": 1,
             "show_title": "Bhaichara",
@@ -211,16 +175,15 @@ def seed_transcripts():
                 "Advocate Mehra: If we present the ledger now, the entire district ministry falls.\n"
                 "Jaideep: Present it tomorrow morning. Let the storm begin."
             ),
-            "summary": "Season finale legal showdown dialogue; episode unreleased in analytics DB."
+            "summary": "Dialogue from unreleased finale."
         }
     ]
 
     out_file = TRANSCRIPTS_DIR / "transcripts.json"
     with open(out_file, "w", encoding="utf-8") as f:
-        json.dump(transcripts_data, f, indent=2)
-
-    print(f"[OK] Transcripts seeded at: {out_file} ({len(transcripts_data)} scene chunks)")
+        json.dump(transcripts, f, indent=2)
 
 if __name__ == "__main__":
     seed_sqlite_database()
     seed_transcripts()
+    print("Database and transcripts seeded successfully.")

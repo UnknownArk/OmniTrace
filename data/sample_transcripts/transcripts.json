@@ -1,0 +1,74 @@
+[
+  {
+    "show_id": 1,
+    "show_title": "Bhaichara",
+    "episode_id": 101,
+    "episode_num": 1,
+    "scene_num": 1,
+    "start_time": "00:00:30",
+    "end_time": "00:03:00",
+    "start_seconds": 30,
+    "end_seconds": 180,
+    "location": "Murthal Toll Plaza",
+    "characters": [
+      "Jaideep",
+      "Virender"
+    ],
+    "dialogue": "Jaideep: Bhai, gaddi tezi se nikal. Peeche police ki patrolling team hai.\nVirender: Tension na le Jaideep, Rohtak bypass tak koi nahi rok sakega humein.\nJaideep: Yeh consignment har haal mein sham tak pahunchana hai.",
+    "summary": "High-octane opening scene where Jaideep and Virender evade toll check with cargo."
+  },
+  {
+    "show_id": 1,
+    "show_title": "Bhaichara",
+    "episode_id": 103,
+    "episode_num": 3,
+    "scene_num": 2,
+    "start_time": "00:07:00",
+    "end_time": "00:09:30",
+    "start_seconds": 420,
+    "end_seconds": 570,
+    "location": "Old Sugar Mill, Panipat",
+    "characters": [
+      "Jaideep",
+      "Chaudhary Balwant"
+    ],
+    "dialogue": "Chaudhary: Tu samajhta hai tu is shahar ka naya raja ban gaya hai, Jaideep?\nJaideep: Raja toh public banati hai, Chaudhary sahab. Hum toh bas faisle karte hain.",
+    "summary": "Tense political confrontation between Jaideep and Chaudhary Balwant."
+  },
+  {
+    "show_id": 1,
+    "show_title": "Bhaichara",
+    "episode_id": 103,
+    "episode_num": 3,
+    "scene_num": 4,
+    "start_time": "00:12:40",
+    "end_time": "00:14:45",
+    "start_seconds": 760,
+    "end_seconds": 885,
+    "location": "Abandoned Warehouse Basement",
+    "characters": [
+      "Virender",
+      "Mysterious Informant"
+    ],
+    "dialogue": "Virender: (whispering, slurred audio) The GPS beacon was planted under Jaideep's seat.\nInformant: (static and muffled) The signal is dead. You betrayed the wrong syndicate.\n[Audio cuts to jarring high-pitched static for 15 seconds. Unresolved narrative jump. Scene cuts abruptly into an unannounced black-and-white flashback without subtitle translations.]",
+    "summary": "Sudden jarring audio glitch and abrupt black-and-white flashback sequence without dialogue coherence."
+  },
+  {
+    "show_id": 1,
+    "show_title": "Bhaichara",
+    "episode_id": 108,
+    "episode_num": 8,
+    "scene_num": 5,
+    "start_time": "00:15:00",
+    "end_time": "00:18:00",
+    "start_seconds": 900,
+    "end_seconds": 1080,
+    "location": "High Court Steps",
+    "characters": [
+      "Jaideep",
+      "Advocate Mehra"
+    ],
+    "dialogue": "Advocate Mehra: If we present the ledger now, the entire district ministry falls.\nJaideep: Present it tomorrow morning. Let the storm begin.",
+    "summary": "Season finale legal showdown dialogue; episode unreleased in analytics DB."
+  }
+]

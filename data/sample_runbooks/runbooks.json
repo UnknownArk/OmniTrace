@@ -1,0 +1,47 @@
+[
+  {
+    "id": "rb-chk-504",
+    "service_name": "checkout-service",
+    "title": "Checkout Service 504 Gateway Timeout Runbook",
+    "severity_level": "P1-CRITICAL",
+    "content": "SYMPTOMS: Checkout-service throws 504 Gateway Timeout on /api/v1/checkout/pay. P99 latency spikes above 5000ms.\nROOT CAUSE: Upstream payment-gateway service or banking partner acquirer connection is failing to acknowledge requests.\nDIAGNOSIS: Check service_telemetry_logs for payment-gateway error messages and bank partner response times.\nREMEDIATION: Trigger circuit breaker trip to fallback provider via: `kubectl exec -it deployment/checkout-service -- /scripts/trip_circuit_breaker.sh --provider=stripe_fallback`. Notify financial operations team immediately.",
+    "keywords": [
+      "checkout",
+      "504",
+      "gateway timeout",
+      "payment",
+      "p99",
+      "acquirer",
+      "circuit breaker"
+    ]
+  },
+  {
+    "id": "rb-auth-500",
+    "service_name": "auth-service",
+    "title": "Auth Service Redis Connection Pool Exhaustion",
+    "severity_level": "P2-HIGH",
+    "content": "SYMPTOMS: Auth service returns 500 Internal Server Error on /api/v1/auth/token. Error logs indicate 'RedisConnectionError: Connection pool exhausted'.\nROOT CAUSE: Session token validation leaks connections under sudden traffic bursts without releasing pool sockets.\nDIAGNOSIS: Inspect telemetry logs for Redis connection error messages and peak connection counts.\nREMEDIATION: Purge idle Redis socket pool and restart deployment pods via: `kubectl rollout restart deployment/auth-service -n production`. Scale connection pool ceiling in ConfigMap if traffic volume is sustained.",
+    "keywords": [
+      "auth",
+      "redis",
+      "connection pool",
+      "500",
+      "token",
+      "rollout restart"
+    ]
+  },
+  {
+    "id": "rb-gen-p99",
+    "service_name": "payment-gateway",
+    "title": "Payment Gateway P99 Latency & Connection Reset Runbook",
+    "severity_level": "P1-CRITICAL",
+    "content": "SYMPTOMS: Payment gateway /charge latency exceeding 4000ms with connection resets.\nROOT CAUSE: Primary banking acquirer socket hang or rate-limiting.\nDIAGNOSIS: Verify if downstream status_code 504 is isolated to primary acquirer.\nREMEDIATION: Execute emergency traffic switch to secondary banking tunnel: `kubectl set env deployment/payment-gateway ACQUIRER_ROUTE=secondary`.",
+    "keywords": [
+      "payment-gateway",
+      "acquirer",
+      "connection reset",
+      "p99",
+      "latency"
+    ]
+  }
+]

@@ -5,7 +5,9 @@ from dotenv import load_dotenv
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT_DIR / "data"
 DB_PATH = DATA_DIR / "media_analytics.db"
+TELEMETRY_DB_PATH = DATA_DIR / "telemetry.db"
 TRANSCRIPTS_PATH = DATA_DIR / "sample_transcripts" / "transcripts.json"
+RUNBOOKS_PATH = DATA_DIR / "sample_runbooks" / "runbooks.json"
 
 load_dotenv(ROOT_DIR / ".env")
 if not os.getenv("GEMINI_API_KEY"):
@@ -19,6 +21,9 @@ GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "qwen/qwen3.8-27b")
 FALLBACK_GROQ_MODELS = ["qwen/qwen3.8-27b", "openai/gpt-oss-20b", "openai/gpt-oss-120b"]
 EMBEDDING_MODEL = "text-embedding-004"
+
+LANGCHAIN_TRACING_V2 = os.getenv("LANGCHAIN_TRACING_V2", "false")
+LANGCHAIN_PROJECT = os.getenv("LANGCHAIN_PROJECT", "omnitrace-v2")
 
 MAX_RETRY_BUDGET = 3
 MAX_AGENT_TURNS = 8

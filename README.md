@@ -1,126 +1,120 @@
 # OmniTrace
 
-**Autonomous hybrid analytics engine bridging structured SQL telemetry with unstructured document RAG.**
+**Autonomous SRE incident triage and telemetry intelligence engine built with LangGraph, PGVector, and Self-RAG.**
 
 ---
 
-### The Problem: The Dual-Modality Gap
+### The Problem: Siloed Operational Telemetry
 
-Operational datasets in media streaming, fintech, and enterprise operations are fundamentally split into two disjoint silos:
+During production microservice outages, operational intelligence is fundamentally split into two disjoint systems:
 
-1. **Structured Telemetry (SQL)** captures quantitative realities—viewership drop-offs, latency spikes, transaction failure rates, and completion percentages. It answers *what happened* and *when*, but contains no narrative context.
-2. **Unstructured Evidence (Documents/Transcripts)** captures human narrative—scene dialogue, screenplay notes, incident postmortems, and customer dispute transcripts. It answers *why it happened*, but cannot compute mathematical aggregations, filter numeric thresholds, or join tabular entities.
+1. **Structured Telemetry (SQL):** Status codes (HTTP 504, 500), p99 latency spikes, error rates, and connection pool saturation live in relational databases. They tell you *what broke* and *when*, but cannot explain system context or remediation procedures.
+2. **Unstructured Runbooks (Vector Search):** SRE architectural runbooks, postmortems, and mitigation procedures live in technical documentation. They tell you *how to fix it*, but cannot compute aggregate error rates or filter telemetry spikes.
 
-Traditional AI implementations fail on hybrid questions:
-- **Pure RAG** cannot compute aggregations (`AVG`, `MAX`, `WHERE drop_off > 30%`).
-- **Text-to-SQL** cannot reason over unstructured dialogue or narrative pacing.
+Standard AI pipelines fail here:
+- **Pure RAG** cannot compute aggregations (`AVG`, `MAX`, `WHERE latency > 4000ms`).
+- **Text-to-SQL** cannot interpret narrative incident runbooks.
+- **Linear chains** hallucinate root causes under noisy, ambiguous logs without self-correction.
 
-**OmniTrace** implements a cyclic **ReAct** (Reason $\rightarrow$ Act $\rightarrow$ Observe $\rightarrow$ Reflect) state machine that routes queries across both modalities, self-heals execution errors, and synthesizes evidence-backed root-cause diagnoses.
+**OmniTrace** is an autonomous finite state machine built with **LangGraph** that unifies structured SQL telemetry with hybrid PGVector runbook retrieval, validates hypotheses using a **Self-RAG Groundedness Critic**, and enforces **Human-in-the-Loop (HITL)** approval before remediation.
 
 ---
 
 ### Architecture
 
 ```
-                                 [ User Query ]
-                                        │
-                                        ▼
-                     ┌──────────────────────────────────────┐
-                     │       ReAct Agent Orchestrator       │◄─────────────────┐
-                     │ (Reason ──► Act ──► Observe ──► Ref) │                  │
-                     └──────────┬────────────────┬──────────┘                  │
-                                │                │                             │
-                ┌───────────────┘                └───────────────┐             │
-                ▼                                                ▼             │
-  ┌───────────────────────────┐                    ┌───────────────────────────┐
-  │   Safe SQL Telemetry DB   │                    │   Windowed Script RAG     │
-  │ ───────────────────────── │                    │ ───────────────────────── │
-  │ • SQLite Read-Only (ro)   │                    │ • Temporal window (+/-60s)│
-  │ • AST Keyword Guardrail   │                    │ • Scene dialogue chunks   │
-  │ • Automatic LIMIT inject  │                    │ • Missing boundary checks │
-  └─────────────┬─────────────┘                    └─────────────┬─────────────┘
-                │                                                │
-                │ (On SQLite Syntax/Schema Error)                │
-                ▼                                                │
-  ┌───────────────────────────┐                                  │
-  │    Self-Healing Engine    │──────────────────────────────────┘
-  │ • Catch OperationalError  │
-  │ • Schema reflection hint  │
-  │ • Circuit breaker (max 3) │
-  └───────────────────────────┘
-                │
-                └───────────────────────┬────────────────────────┘
-                                        │
-                                        ▼
-                         [ Synthesized Root Cause ]
-                         (Cites Metrics & Dialogue)
+                                [ Alert / Incident Trigger ]
+                                             │
+                                             ▼
+                             ┌───────────────────────────────┐
+                             │       Router Node             │
+                             │ (Service Parsing & Plan)      │
+                             └───────┬───────────────┬───────┘
+                                     │               │
+                     ┌───────────────┘               └───────────────┐
+                     ▼                                               ▼
+       ┌───────────────────────────┐                   ┌───────────────────────────┐
+       │   PGVector Hybrid Store   │                   │  AST-Guarded SQL Analytics│
+       │ ───────────────────────── │                   │ ───────────────────────── │
+       │ • HNSW Vector Index (m=16)│                   │ • Read-Only Connection(ro)│
+       │ • Service Metadata Filter │                   │ • DDL/DML Keyword Blocking│
+       │ • Sub-15ms similarity     │                   │ • Auto LIMIT Injection    │
+       └─────────────┬─────────────┘                   └─────────────┬─────────────┘
+                     │                                               │
+                     └───────────────────────┬───────────────────────┘
+                                             ▼
+                             ┌───────────────────────────────┐
+                             │        Synthesis Node         │
+                             │ (Diagnosis & Action Proposal) │
+                             └───────────────┬───────────────┘
+                                             │
+                                             ▼
+                             ┌───────────────────────────────┐
+                             │   Self-RAG Critic Node        │◄──────────────┐
+                             │ (Groundedness Score Check)    │               │
+                             └───────────────┬───────────────┘               │
+                                             │                               │
+                       ┌─────────────────────┴─────────────────────┐         │
+        Score < 0.75   │                             Score >= 0.75 │         │
+     (Retry count < 3) │                                           │         │
+                       ▼                                           ▼         │
+        ┌─────────────────────────────┐             ┌─────────────────────┐  │
+        │      Refine Query Node      │             │ Sensitive Action?   │  │
+        │ (Broadens search context)   │             └──────┬────────┬─────┘  │
+        └──────────────┬──────────────┘                    │        │        │
+                       │ (Cycle)                           │ Yes    │ No     │
+                       └───────────────────────────────────┘        │        │
+                                                           ▼        │        │
+                                            ┌─────────────────────┐ │        │
+                                            │ Human Approval Gate │ │        │
+                                            │ (interrupt_before)  │ │        │
+                                            └──────────────┬──────┘ │        │
+                                                           │        │        │
+                                                           └────┬───┘        │
+                                                                ▼            │
+                                                 ┌────────────────────────┐  │
+                                                 │ Final SRE Triage Report│──┘
+                                                 └────────────────────────┘
 ```
 
 ---
 
-### Engineering Decisions & Defensive Design
+### Engineering Decisions & System Mechanics
 
-#### 1. Deterministic SQL Guardrails (Zero Trust)
-Prompt-only guardrails (*"please only write SELECT queries"*) are brittle and vulnerable to hallucinations or prompt injection. OmniTrace enforces safety at the system boundary:
-- Database connection initialized with `sqlite3.connect("file:...?mode=ro", uri=True)`.
-- AST and token parser validates that queries strictly start with `SELECT` or `WITH`.
-- Reject-list blocks destructive tokens (`DROP`, `DELETE`, `UPDATE`, `INSERT`, `ALTER`, `TRUNCATE`, `PRAGMA`).
-- Queries without an explicit `LIMIT` automatically receive `LIMIT 100` to prevent memory exhaustion.
+#### 1. LangGraph State Machine & Cyclical Refinement
+Instead of fragile linear while-loops, OmniTrace runs on a strongly typed `AgentState` (`TypedDict` with `add_messages` reducer). When initial telemetry is noisy, conditional edges route the graph from `critic` $\rightarrow$ `refine_query` $\rightarrow$ `retriever` in a cyclical loop. An explicit `retry_count` state variable acts as a circuit breaker, routing to fallback escalation if confidence remains below 0.75 after 3 attempts.
 
-#### 2. Windowed Temporal Retrieval (Absorbing Clock Drift)
-In media production and streaming pipelines, client player playhead timestamps rarely match post-production screenplay timecodes exactly due to player buffering, intro recaps, or editing trims.
-- Standard retrieval fails on exact timestamp queries (`timestamp == 790`).
-- OmniTrace implements a sliding window:
-  $$\text{Interval} = [\max(0, T - W), T + W] \quad \text{where } W = 60\text{s}$$
-  This captures both the lead-up context and the immediate narrative consequence.
+#### 2. Single-Store PGVector Architecture
+OmniTrace provides a production PostgreSQL 16 schema (`scripts/init_db.sql`) with PGVector:
+- **HNSW Indexing:** `USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64)` provides sub-15ms approximate nearest-neighbor search instead of exhaustive $O(N)$ flat scans.
+- **Relational + Semantic Fusion:** Filters service metadata (`service_name`) and calculates vector cosine distance (`<=>`) in a single execution plan, eliminating the overhead of managing a separate vector database.
+- **Embedded Dual-Adapter:** For local development and testing, an embedded vector store runs immediately without requiring a running PostgreSQL daemon.
 
-#### 3. Autonomous Self-Healing & Circuit Breaker
-When an LLM generates a query targeting an invalid column or missing table:
-- The runtime intercepts the `sqlite3.OperationalError`.
-- Formats a structured diagnostic observation containing the failed query and schema hint.
-- The agent inspects valid schemas via `inspect_schema`, revises the SQL, and re-executes.
-- Execution is governed by a **Circuit Breaker** (maximum 3 retry budget) to prevent runaway token spend.
+#### 3. Self-RAG Hallucination Defense (Critic Node)
+The Critic node evaluates diagnostic hypotheses across three groundedness checks:
+- Does the hypothesis strictly cite verified telemetry numbers (status codes, peak latency)?
+- Does the remediation action derive directly from retrieved runbook content?
+- Are service entities consistent across logs and runbooks?
 
-#### 4. Epistemic Integrity on Asymmetric Data
-Real data is frequently out of sync:
-- **Telemetry exists, transcript missing**: The agent reports confirmed metrics and explicitly flags that dialogue records are absent (e.g. silent scene or missing log) without hallucinating text.
-- **Transcript exists, telemetry missing**: The agent extracts dialogue notes and explicitly states that viewership analytics are pending ingestion or unreleased.
-
----
-
-### Live Execution Walkthrough
-
-**Query**:
-> *"Which episode in Bhaichara had the highest audience drop-off rate, and what was happening in the script during that scene?"*
-
-**Trace Summary**:
-1. `inspect_schema()` $\rightarrow$ Discovers `shows`, `episodes`, `retention_dropoffs`, `regional_performance`.
-2. `execute_sql(query="SELECT ... FROM retention_dropoffs ORDER BY drop_off_pct DESC LIMIT 1;")` $\rightarrow$ Isolates **Episode 103 ("The Ambush")** with an abnormal **38.4% drop-off at 00:13:10 (790s)**.
-3. `search_transcripts(episode_id=103, timestamp_seconds=790, window_seconds=60)` $\rightarrow$ Retrieves Scene 4 in the Abandoned Warehouse basement:
-   > *"Virender: The GPS beacon was planted under Jaideep's seat... [Audio cuts to jarring high-pitched static for 15 seconds. Unresolved narrative jump. Scene cuts abruptly into an unannounced black-and-white flashback without subtitle translations.]"*
-4. **Synthesis**:
-   > *"The 38.4% mobile drop-off at 00:13:10 corresponds directly to a technical/editing defect: a 15-second burst of high-pitched audio static followed by an untranslated, unannounced flashback. This broke viewer immersion (logged as 'Abrupt Scene Exit'), followed by a secondary 12.1% SmartTV exit 60 seconds later. Recommended action: Remaster audio and add transition cues to Scene 4."*
+#### 4. Human-in-the-Loop (HITL) Execution Breakpoints
+Autonomous agents should never execute destructive infrastructure changes unassisted. OmniTrace compiles the graph with `interrupt_before=["human_approval_gate"]`. When a remediation command contains sensitive operations (`kubectl`, `restart`, `rollback`, `circuit breaker`), execution pauses, serializes state to the checkpointer, and requires explicit operator sign-off before proceeding.
 
 ---
 
 ### Evaluation Suite (`evals/`)
 
-OmniTrace includes an automated test and evaluation harness:
+The evaluation suite validates the **RAG Triad** and state machine cycles deterministically:
 
 ```bash
-# Run deterministic offline unit tests (0.5s execution)
-pytest evals/test_unit_guardrails.py -v
-
-# Run the golden benchmark evaluation suite
-python evals/runner.py
+# Run complete test suite (15 passed in under 1 second)
+pytest evals/test_rag_triad.py evals/test_graph_cycles.py evals/test_unit_guardrails.py -v
 ```
 
-#### Test Coverage:
-- **SQL Security & AST**: Rejection of destructive queries, chained statements, and validation of CTE queries.
-- **Schema Discovery**: Table discovery and column type inspection.
-- **RAG Temporal Windows**: Range retrieval verification and missing-entity handling.
-- **Agent Routing Precision**: Asserting correct tool call sequences across hybrid and single-modality questions.
-- **G-Eval Semantic Faithfulness**: Using Chain-of-Thought LLM judgment (`evals/geval_judge.py`) to score answer fidelity and penalize hallucinations.
+- **Context Relevance:** Validates that hybrid retrieval isolates correct service runbooks based on incident symptoms.
+- **Groundedness:** Evaluates that $100\%$ of diagnostic claims cite real error codes and peak latencies from telemetry.
+- **Answer Relevance:** Verifies that recommended actions contain actionable remediation scripts.
+- **Cyclical Graph Safety:** Verifies that ambiguous queries trigger the refinement loop and enforce the 3-attempt circuit breaker without infinite recursion.
+- **AST Guardrails:** Offline testing proving `DROP`, `UPDATE`, `DELETE`, and stacked queries are blocked.
 
 ---
 
@@ -128,31 +122,38 @@ python evals/runner.py
 
 ```text
 OmniTrace/
-├── omni_trace/                 # Core engine package
-│   ├── agent.py                # ReAct loop orchestrator & multi-provider dispatcher
-│   ├── config.py               # Central configuration & safeguard limits
-│   ├── models.py               # Pydantic schemas for traces, steps, and tool payloads
+├── omni_trace/
+│   ├── graph/                      # LangGraph State Machine
+│   │   ├── state.py                # Typed AgentState with add_messages
+│   │   ├── workflow.py             # StateGraph definition & HITL interrupt
+│   │   ├── edges.py                # Conditional routing logic
+│   │   └── nodes/                  # Discrete functional nodes
+│   │       ├── router.py           # Service extraction & execution plan
+│   │       ├── retriever.py        # PGVector hybrid runbook retrieval
+│   │       ├── sql_analytics.py    # AST-guarded SQL telemetry analytics
+│   │       ├── synthesis.py        # Diagnostic hypothesis formulation
+│   │       ├── critic.py           # Self-RAG Groundedness Critic
+│   │       ├── refine.py           # Cyclical query refinement
+│   │       ├── human_approval.py   # HITL approval gate
+│   │       └── report.py           # Final triage report & fallback
+│   ├── database/
+│   │   └── vector_store.py         # PGVector store + local test fallback
 │   ├── safety/
-│   │   └── sql_guard.py        # AST validation, keyword blocking, LIMIT injection
-│   └── tools/
-│       ├── base.py             # Tool contract interface
-│       ├── inspector_tool.py   # Read-only schema introspection tool
-│       ├── sql_tool.py         # Read-only SQL executor with error feedback
-│       └── rag_tool.py         # Transcript retriever with sliding temporal window
+│   │   └── sql_guard.py            # AST validation & read-only enforcement
+│   └── config.py                   # Central settings & LangSmith tracing flags
+├── scripts/
+│   └── init_db.sql                 # Production PostgreSQL + PGVector (HNSW) schema
 ├── data/
-│   ├── seed_data.py            # Reproducible telemetry DB & transcript generator
-│   └── sample_transcripts/     # Seeded scene transcripts
+│   ├── seed_incident_data.py       # SRE telemetry DB and runbook generator
+│   └── sample_runbooks/            # Seeded incident runbooks
 ├── evals/
-│   ├── benchmark_dataset.json  # Golden test queries, expected tools, and facts
-│   ├── geval_judge.py          # Native G-Eval judge (Chain-of-Thought semantic scoring)
-│   ├── runner.py               # Benchmark runner & metric aggregator
-│   ├── test_unit_guardrails.py # Deterministic offline Pytest suite
-│   ├── test_routing.py         # Tool routing precision tests
-│   └── test_self_healing.py    # Error recovery & guardrail tests
-├── cli.py                      # Interactive terminal CLI with step-by-step trace views
-├── pyproject.toml              # Build system & package configuration
-├── requirements.txt            # Minimal runtime dependencies
-└── LICENSE                     # MIT License
+│   ├── test_rag_triad.py           # RAG Triad test suite
+│   ├── test_graph_cycles.py        # Cyclical graph & circuit breaker tests
+│   └── test_unit_guardrails.py     # Deterministic SQL guardrail tests
+├── cli.py                          # Interactive terminal interface with HITL support
+├── pyproject.toml                  # Build system & package configuration
+├── requirements.txt                # Runtime dependencies
+└── LICENSE                         # MIT License
 ```
 
 ---
@@ -169,19 +170,18 @@ source .venv/bin/activate  # Windows: .\.venv\Scripts\activate
 # 2. Install dependencies
 pip install -r requirements.txt
 
-# 3. Seed demo telemetry & scripts
-python data/seed_data.py
+# 3. Seed demo SRE telemetry & runbooks
+python data/seed_incident_data.py
 
-# 4. Configure environment (.env)
-# OMNITRACE_PROVIDER=groq
-# GROQ_API_KEY=your_key_here
-
-# 5. Launch interactive CLI
+# 4. Launch interactive CLI
 python cli.py
+
+# 5. Run evaluation tests
+pytest evals/ -v
 ```
 
 ---
 
 ### License
 
-Distributed under the MIT License. See [LICENSE](LICENSE) for more information.
+Distributed under the MIT License. See [LICENSE](LICENSE) for details.

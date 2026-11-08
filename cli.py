@@ -1,11 +1,10 @@
 import sys
+import uuid
 from rich.console import Console
 from rich.panel import Panel
-from rich.markdown import Markdown
 from rich.prompt import Prompt
 
-from omni_trace.agent import OmniTraceAgent
-from omni_trace.config import DEFAULT_PROVIDER
+from omni_trace.graph.workflow import build_incident_graph
 
 console = Console()
 
@@ -15,46 +14,58 @@ BANNER = """
 [bold cyan]| | | | '_ ` _ \\| '_ \\| |   | || '__/ _` |/ __/ _ \\  [/bold cyan]
 [bold cyan]| |_| | | | | | | | | | |   | || | | (_| | (_|  __/  [/bold cyan]
 [bold cyan] \\___/|_| |_| |_|_| |_|_|   |_||_|  \\__,_|\\___\\___|  [/bold cyan]
-[dim]Hybrid SQL & Semantic RAG Intelligence Agent[/dim]
+[dim]LangGraph Autonomous SRE Incident Triage Engine[/dim]
 """
 
-def print_trace(trace):
-    console.print()
-    console.print(f"[bold yellow]=== Reasoning Chain ({len(trace.steps)} turns, {trace.execution_time_sec}s) ===[/bold yellow]")
+def run_incident_triage(query: str):
+    graph = build_incident_graph(enable_hitl=True)
+    thread_id = str(uuid.uuid4())[:8]
+    config = {"configurable": {"thread_id": thread_id}}
 
-    for step in trace.steps:
-        content = []
-        if step.thought:
-            content.append(f"[bold blue]Thought:[/bold blue] {step.thought}")
-        if step.action:
-            args_str = ", ".join(f"{k}={v!r}" for k, v in step.action.tool_args.items())
-            content.append(f"[bold magenta]Action:[/bold magenta] [green]{step.action.tool_name}[/green]({args_str})")
-        if step.observation:
-            obs_preview = step.observation[:250] + ("..." if len(step.observation) > 250 else "")
-            content.append(f"[bold dim]Observation:[/bold dim] {obs_preview}")
-        if step.self_healed:
-            content.append("[bold green]Self-Healing Recovery:[/bold green] Recovered from prior execution error.")
+    initial_state = {
+        "incident_query": query,
+        "retry_count": 0,
+        "messages": []
+    }
 
-        panel = Panel("\n".join(content), title=f"Step {step.step_number}", border_style="cyan")
-        console.print(panel)
+    console.print(f"\n[cyan]Starting LangGraph execution (Thread: {thread_id})...[/cyan]")
 
-    console.print()
-    console.print(Panel(Markdown(trace.final_answer), title="[bold green]Diagnosis[/bold green]", border_style="green"))
-    console.print(f"[dim]Tools: {', '.join(trace.tools_called) or 'None'} | Status: {trace.status} | Latency: {trace.execution_time_sec}s[/dim]\n")
+    # Run up to human approval gate or completion
+    with console.status("[bold green]Executing StateGraph nodes (Router -> Retriever/SQL -> Synthesis -> Critic)...[/bold green]"):
+        graph.invoke(initial_state, config=config)
+
+    state = graph.get_state(config)
+
+    # Check if paused at human-in-the-loop gate
+    if state.next == ("human_approval_gate",):
+        remediation = state.values.get("proposed_remediation", "")
+        service = state.values.get("service_name", "target service")
+
+        console.print(Panel(
+            f"[bold yellow]Action Required:[/bold yellow] Remediation for [green]{service}[/green] is marked sensitive:\n\n"
+            f"[bold red]{remediation}[/bold red]",
+            title="[bold yellow]Human-in-the-Loop Approval Gate[/bold yellow]",
+            border_style="yellow"
+        ))
+
+        approval = Prompt.ask("[bold cyan]Approve remediation execution? [y/N][/bold cyan]", default="n")
+        if approval.strip().lower() in ("y", "yes"):
+            with console.status("[bold green]Resuming graph execution with human approval...[/bold green]"):
+                res = graph.invoke(None, config=config)
+            console.print(Panel(res.get("final_report", ""), title="[bold green]Final SRE Report[/bold green]", border_style="green"))
+        else:
+            console.print("[red]Remediation rejected by operator. Aborted execution.[/red]\n")
+    else:
+        report = state.values.get("final_report", "")
+        console.print(Panel(report, title="[bold green]Final SRE Report[/bold green]", border_style="green"))
 
 def main():
     console.clear()
     console.print(BANNER)
-    console.print(f"[bold green]Initializing Agent ({DEFAULT_PROVIDER})...[/bold green]")
-    
-    try:
-        agent = OmniTraceAgent()
-        console.print(f"[dim]Model: {agent.model_name}[/dim]\n")
-    except Exception as e:
-        console.print(f"[bold red]Initialization Error:[/bold red] {e}")
-        sys.exit(1)
-
-    console.print("[yellow]Enter analytical query ('exit' to quit):[/yellow]\n")
+    console.print("[dim]Simulated SRE Incidents:")
+    console.print("  1. 504 Gateway Timeout in checkout-service during payment processing")
+    console.print("  2. Auth service Redis connection pool exhausted (500 Internal Server Error)")
+    console.print("  3. Payment gateway P99 latency exceeding 4000ms with connection resets[/dim]\n")
 
     while True:
         try:
@@ -65,10 +76,7 @@ def main():
                 console.print("[green]Exited.[/green]")
                 break
 
-            with console.status("[bold green]Executing ReAct loop...[/bold green]"):
-                trace = agent.run(query)
-
-            print_trace(trace)
+            run_incident_triage(query)
 
         except KeyboardInterrupt:
             console.print("\n[yellow]Interrupted.[/yellow]")
